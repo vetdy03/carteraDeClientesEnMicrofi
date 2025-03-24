@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from imblearn.over_sampling import SMOTE
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 # Generación de datos de prueba
@@ -26,7 +27,7 @@ data = {
     'estado_civil': np.random.choice(["Soltero", "Casado", "Divorciado"], n_samples),
     'estrato': np.random.randint(1, 6, n_samples),
     'segmento': np.random.choice(["Alto", "Medio", "Bajo"], n_samples),
-    'desercion': np.random.choice([0, 1], n_samples, p=[0.7, 0.3])
+    'desercion': np.random.choice([0, 1], n_samples, p=[0.7, 0.3])  # Desbalance de clases
 }
 
 df = pd.DataFrame(data)
@@ -41,11 +42,15 @@ X = df.drop(columns=['desercion'])
 y = df['desercion']
 X_scaled = scaler.fit_transform(X)
 
-# División de datos en entrenamiento y prueba
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+# Aplicar SMOTE para balancear clases
+smote = SMOTE(random_state=42)
+X_resampled, y_resampled = smote.fit_resample(X_scaled, y)
 
-# Entrenamiento del modelo de regresión logística
-model = LogisticRegression()
+# División de datos en entrenamiento y prueba
+X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42)
+
+# Entrenamiento del modelo mejorado (Random Forest en lugar de Regresión Logística)
+model = RandomForestClassifier(class_weight="balanced", random_state=42, n_estimators=100)
 model.fit(X_train, y_train)
 
 # Evaluación del modelo
@@ -54,11 +59,16 @@ print("Accuracy:", accuracy_score(y_test, y_pred))
 print("Matriz de confusión:\n", confusion_matrix(y_test, y_pred))
 print("Reporte de clasificación:\n", classification_report(y_test, y_pred))
 
-# Visualización de datos
+# Visualización de datos corregida
 plt.figure(figsize=(10, 5))
-sns.countplot(x='desercion', data=df, palette='coolwarm')
+sns.countplot(x='desercion', data=df)
 plt.title("Distribución de clientes que desertan (1) vs. los que permanecen (0)")
 plt.show()
 
 # Mostrar las primeras filas del dataset
 df.head()
+
+# Guardar los datos generados en un archivo Excel
+df.to_excel("datos_credito.xlsx", index=False)
+
+print("Archivo 'datos_credito.xlsx' generado exitosamente.")
